@@ -54,4 +54,4 @@ Flask 应用在 127.0.0.1:8001 上监听并处理请求。
 ProxyPassReverse / http://127.0.0.1:8001/：反向代理，将后端 Flask 应用的响应中的 URL（如重定向或跳转）修改为前端 blog2.joy.com 的地址。
 Flask 返回的响应（如包含重定向的 Location 头）会被 Apache 通过 ProxyPassReverse 修改，使得响应中的 URL 变为 blog2.joy.com，而不是 127.0.0.1:8001
 5、最终响应到客户端
-Apache 将修改后的响应返回给客户端，客户端看到的是来自 blog2.joy.com 的内容。
+Apache 将修改后的响应返回给客户端，客户端看到的是来自 blog2.joy.com 的内容
