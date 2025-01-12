@@ -1,0 +1,57 @@
+========================================
+Apache与hostname的联系梳理
+----------------------------------------
+Apache HTTP服务器支持虚拟主机配置，它允许一台服务器托管多个网站，在虚拟主机的配置中，'SeverName'和'SeverAlias'指定了服务器的主机名，即hostname。
+
+========================================
+hostname、127.0.0.1与端口
+----------------------------------------
+hostname指的是域名，比如xx.com，域名通常需要通过DNS（Domain Name System）解析，转换成IP地址来进行网络通信。
+
+127.0.0.1：是本地回环地址（loaclhost），指向计算机自身，特殊的IPv4地址，用于访问自己的服务器。
+
+端口号是一个16位的数字，用于主机上的特定服务。在计算机上，多个程序和服务可能同时进行，每个服务通过不同的端口号来区分。端口号的范围是0到65535，其中0-1023是系统端口，通常被操作系统保留于常年的服务，比如HTTP使用80端口，HTTPS使用443端口。
+
+举例：http://xx.cc:8080 其中，8080是端口号，告诉浏览器请求的是在xx.cc 主机上的某个任务，并且进行监听的是8080端口。
+
+========================================
+Apache如何关联hostname、127.0.0.1和端口
+----------------------------------------
+Apache HTTP服务器可以通过虚拟主机（Virtual Host）配置，将特定的hostname与对应的IP地址、端口号以及网站根目录进行关联。虚拟主机配置允许Apache根据不同的hostname或者端口号来提供不同的内容。
+
+========================================
+txtBlog的配置如何与Apache配置关联
+----------------------------------------
+txtBlog中配置
+if __name__ == '__main__':
+        app.debug = True # 设置调试模式，生产模式的时候要关掉debug
+        #app.run(host="blog2.163.com",port=8000)
+        app.run(host="127.0.0.1",port=8001) #default, private
+        #app.run(host="0.0.0.0",port=getConf("system", "port")) #public
+
+Apache配置
+<VirtualHost *:80>
+    ServerName blog2.joy.com
+    ProxyRequests Off
+    ProxyPreserveHost On
+    <Proxy />
+        Order deny,allow
+        Allow from all
+    </Proxy>
+    ProxyPass /  http://127.0.0.1:8001/
+    ProxyPassReverse /  http://127.0.0.1:8001/
+</VirtualHost>
+
+这两部分一起使用的时候，构成了一个反向代理配置，Flask应用作为后端服务，Apache作为前端代理服务器。Flask使其在127.0.0.1:8001上监听HTTP请求，Apache使其在端口80上监听HTTP请求，并将其请求转发到Flask。
+
+过程：
+1、网页访问http://blog2.joy.com
+2、Apache通过80端口监听HTTP请求，根据配置文件，获得转发位置127.0.0.1:8001，将其转发给txtBlog后端处理，转发内容包括hostname即blog2.joy.com。
+proxyPreserveHost on会保留请求中的Host头，这样即使请求被转发，Flask仍然会看到原始的Host为blog2.joy.com的请求。
+3、Flask 应用处理请求并返回响应
+Flask 应用在 127.0.0.1:8001 上监听并处理请求。
+4、Apache 接收 Flask 的响应并修改 URL：
+ProxyPassReverse / http://127.0.0.1:8001/：反向代理，将后端 Flask 应用的响应中的 URL（如重定向或跳转）修改为前端 blog2.joy.com 的地址。
+Flask 返回的响应（如包含重定向的 Location 头）会被 Apache 通过 ProxyPassReverse 修改，使得响应中的 URL 变为 blog2.joy.com，而不是 127.0.0.1:8001
+5、最终响应到客户端
+Apache 将修改后的响应返回给客户端，客户端看到的是来自 blog2.joy.com 的内容。
